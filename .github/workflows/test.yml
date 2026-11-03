@@ -19,10 +19,17 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
           cache: gradle
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+      - name: Prepare local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
       - name: Build With Gradle
         run: |
           chmod +x gradlew
-          ./gradlew assemblerelease --build-cache --parallel --daemon --warning-mode all
+          ./gradlew assemblerelease --stacktrace --build-cache --parallel --daemon --warning-mode all
       - name: Prepare App
         run: |
           mkdir -p ${{ github.workspace }}/apk/
