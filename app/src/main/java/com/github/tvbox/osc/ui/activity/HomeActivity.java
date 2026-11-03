@@ -327,6 +327,7 @@ public class HomeActivity extends BaseActivity {
                         Toast.makeText(HomeActivity.this, getString(R.string.hm_style_line), Toast.LENGTH_SHORT).show();
                         tvStyle.setImageResource(R.drawable.hm_left_right);
                     }
+                    UserFragment.resetLoadMoreTarget();
                 } catch (Exception ex) {
                 }
             }

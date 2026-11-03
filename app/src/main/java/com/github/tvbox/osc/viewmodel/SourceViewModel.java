@@ -402,8 +402,126 @@ public class SourceViewModel extends ViewModel {
         }
     }
 
-    interface HomeRecCallback {
+    public interface HomeRecCallback {
         void done(List<Movie.Video> videos);
+    }
+
+    public void getHomeRecListByPage(int page, HomeRecCallback callback) {
+        SourceBean homeSourceBean = ApiConfig.get().getHomeSourceBean();
+        if (homeSourceBean == null) {
+            callback.done(null);
+            return;
+        }
+        int type = homeSourceBean.getType();
+        if (type == 3) {
+            Runnable waitResponse = new Runnable() {
+                @Override
+                public void run() {
+                    ExecutorService executor = Executors.newSingleThreadExecutor();
+                    Future<String> future = executor.submit(new Callable<String>() {
+                        @Override
+                        public String call() throws Exception {
+                            Spider sp = ApiConfig.get().getCSP(homeSourceBean);
+                            return sp.categoryContent("", page + "", true, null);
+                        }
+                    });
+                    String sortJson = null;
+                    try {
+                        sortJson = future.get(15, TimeUnit.SECONDS);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        future.cancel(true);
+                    } finally {
+                        if (sortJson != null) {
+                            AbsXml absXml = json(null, sortJson, homeSourceBean.getKey());
+                            if (absXml != null && absXml.movie != null && absXml.movie.videoList != null) {
+                                callback.done(absXml.movie.videoList);
+                            } else {
+                                callback.done(null);
+                            }
+                        } else {
+                            callback.done(null);
+                        }
+                        try {
+                            executor.shutdown();
+                        } catch (Throwable th) {
+                            th.printStackTrace();
+                        }
+                    }
+                }
+            };
+            spThreadPool.execute(waitResponse);
+        } else if (type == 0 || type == 1) {
+            OkGo.<String>get(homeSourceBean.getApi())
+                    .tag(homeSourceBean.getKey() + "_home_rec_" + page)
+                    .params("ac", type == 0 ? "videolist" : "detail")
+                    .params("pg", page)
+                    .execute(new AbsCallback<String>() {
+                        @Override
+                        public String convertResponse(okhttp3.Response response) throws Throwable {
+                            if (response.body() != null) {
+                                return response.body().string();
+                            } else {
+                                throw new IllegalStateException("网络请求错误");
+                            }
+                        }
+
+                        @Override
+                        public void onSuccess(Response<String> response) {
+                            AbsXml absXml;
+                            if (type == 0) {
+                                absXml = xml(null, response.body(), homeSourceBean.getKey());
+                            } else {
+                                absXml = json(null, response.body(), homeSourceBean.getKey());
+                            }
+                            if (absXml != null && absXml.movie != null && absXml.movie.videoList != null) {
+                                callback.done(absXml.movie.videoList);
+                            } else {
+                                callback.done(null);
+                            }
+                        }
+
+                        @Override
+                        public void onError(Response<String> response) {
+                            super.onError(response);
+                            callback.done(null);
+                        }
+                    });
+        } else if (type == 4) {
+            OkGo.<String>get(homeSourceBean.getApi())
+                    .tag(homeSourceBean.getKey() + "_home_rec_" + page)
+                    .params("ac", "detail")
+                    .params("filter", "true")
+                    .params("pg", page)
+                    .execute(new AbsCallback<String>() {
+                        @Override
+                        public String convertResponse(okhttp3.Response response) throws Throwable {
+                            if (response.body() != null) {
+                                return response.body().string();
+                            } else {
+                                throw new IllegalStateException("网络请求错误");
+                            }
+                        }
+
+                        @Override
+                        public void onSuccess(Response<String> response) {
+                            AbsXml absXml = json(null, response.body(), homeSourceBean.getKey());
+                            if (absXml != null && absXml.movie != null && absXml.movie.videoList != null) {
+                                callback.done(absXml.movie.videoList);
+                            } else {
+                                callback.done(null);
+                            }
+                        }
+
+                        @Override
+                        public void onError(Response<String> response) {
+                            super.onError(response);
+                            callback.done(null);
+                        }
+                    });
+        } else {
+            callback.done(null);
+        }
     }
 
     //    homeVideoContent

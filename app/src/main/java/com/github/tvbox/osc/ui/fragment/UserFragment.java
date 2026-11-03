@@ -31,6 +31,9 @@ import com.lzy.okgo.model.Response;
 import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
 import com.owen.tvrecyclerview.widget.V7GridLayoutManager;
+import androidx.lifecycle.ViewModelProvider;
+import com.github.tvbox.osc.ui.tv.widget.LoadMoreView;
+import com.github.tvbox.osc.viewmodel.SourceViewModel;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -57,6 +60,11 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
     private List<Movie.Video> homeSourceRec;
     public static TvRecyclerView tvHotListForGrid;
     public static TvRecyclerView tvHotListForLine;
+    public static UserFragment mInstance;
+    private SourceViewModel sourceViewModel;
+    private int doubanStart = 0;
+    private int siteRecPage = 1;
+    private boolean isRecLoading = false;
 
     public static UserFragment newInstance() {
         return new UserFragment();
@@ -88,7 +96,7 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
 
         super.onFragmentResume();
         if (Hawk.get(HawkConfig.HOME_REC, 0) == 2) {
-            List<VodInfo> allVodRecord = RoomDataManger.getAllVodRecord(20);
+            List<VodInfo> allVodRecord = RoomDataManger.getAllVodRecord(100);
             List<Movie.Video> vodList = new ArrayList<>();
             for (VodInfo vodInfo : allVodRecord) {
                 Movie.Video vod = new Movie.Video();
@@ -111,6 +119,8 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
     private ImgUtil.Style style;
     @Override
     protected void init() {
+        mInstance = this;
+        sourceViewModel = new ViewModelProvider(this).get(SourceViewModel.class);
         EventBus.getDefault().register(this);
         tvDrive = findViewById(R.id.tvDrive);
         tvLive = findViewById(R.id.tvLive);
@@ -151,6 +161,7 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
           tvRate= homeSourceRec != null ? "站点推荐" : "豆瓣热播";
         }
         homeHotVodAdapter = new HomeHotVodAdapter(style,tvRate);
+        homeHotVodAdapter.setLoadMoreView(new LoadMoreView());
         homeHotVodAdapter.setOnItemClickListener(new BaseQuickAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(BaseQuickAdapter adapter, View view, int position) {
@@ -253,6 +264,8 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
         });
         tvHotListForLine.setAdapter(homeHotVodAdapter);
 
+        resetLoadMoreTarget();
+
         initHomeHotVod(homeHotVodAdapter);
 
         // Swifly: Home Style
@@ -267,8 +280,28 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
 
     private void initHomeHotVod(HomeHotVodAdapter adapter) {
         if (Hawk.get(HawkConfig.HOME_REC, 0) == 1) {
-            if (homeSourceRec != null) {
+            siteRecPage = 1;
+            if (homeSourceRec != null && !homeSourceRec.isEmpty()) {
                 adapter.setNewData(homeSourceRec);
+                adapter.setEnableLoadMore(true);
+            } else if (sourceViewModel != null) {
+                sourceViewModel.getHomeRecListByPage(1, new SourceViewModel.HomeRecCallback() {
+                    @Override
+                    public void done(final List<Movie.Video> videos) {
+                        if (mActivity != null) {
+                            mActivity.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (videos != null && !videos.isEmpty()) {
+                                        homeSourceRec = videos;
+                                        adapter.setNewData(videos);
+                                        adapter.setEnableLoadMore(true);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
             }
             return;
         } else if (Hawk.get(HawkConfig.HOME_REC, 0) == 2) {
@@ -281,10 +314,12 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
             int day = cal.get(Calendar.DATE);
             String today = String.format("%d%d%d", year, month, day);
             String requestDay = Hawk.get("home_hot_day", "");
+            doubanStart = 0;
             if (requestDay.equals(today)) {
                 String json = Hawk.get("home_hot", "");
                 if (!json.isEmpty()) {
                     adapter.setNewData(loadHots(json));
+                    adapter.setEnableLoadMore(true);
                     return;
                 }
             }
@@ -299,7 +334,9 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
                     mActivity.runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            doubanStart = 0;
                             adapter.setNewData(loadHots(netJson));
+                            adapter.setEnableLoadMore(true);
                         }
                     });
                 }
@@ -312,6 +349,118 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
         } catch (Throwable th) {
             th.printStackTrace();
         }
+    }
+
+    public static void resetLoadMoreTarget() {
+        if (homeHotVodAdapter != null) {
+            TvRecyclerView target = Hawk.get(HawkConfig.HOME_REC_STYLE, false) ? tvHotListForGrid : tvHotListForLine;
+            if (target != null) {
+                homeHotVodAdapter.setOnLoadMoreListener(new BaseQuickAdapter.RequestLoadMoreListener() {
+                    @Override
+                    public void onLoadMoreRequested() {
+                        if (mInstance != null) {
+                            mInstance.loadMoreData();
+                        }
+                    }
+                }, target);
+            }
+        }
+    }
+
+    private void loadMoreData() {
+        if (isRecLoading) return;
+        int homeRec = Hawk.get(HawkConfig.HOME_REC, 0);
+        if (homeRec == 0) {
+            loadMoreDouban();
+        } else if (homeRec == 1) {
+            loadMoreSite();
+        } else {
+            homeHotVodAdapter.loadMoreEnd();
+        }
+    }
+
+    private void loadMoreDouban() {
+        isRecLoading = true;
+        try {
+            Calendar cal = Calendar.getInstance();
+            int year = cal.get(Calendar.YEAR);
+            final int nextStart = doubanStart + 20;
+            String doubanHotURL = "https://movie.douban.com/j/new_search_subjects?sort=U&range=0,10&tags=&playable=1&start=" + nextStart + "&year_range=" + year + "," + year;
+            String userAgent = UA.random();
+            OkGo.<String>get(doubanHotURL).headers("User-Agent", userAgent).execute(new AbsCallback<String>() {
+                @Override
+                public void onSuccess(Response<String> response) {
+                    isRecLoading = false;
+                    final ArrayList<Movie.Video> moreVideos = loadHots(response.body());
+                    if (mActivity != null) {
+                        mActivity.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (moreVideos != null && !moreVideos.isEmpty()) {
+                                    doubanStart = nextStart;
+                                    homeHotVodAdapter.addData(moreVideos);
+                                    homeHotVodAdapter.loadMoreComplete();
+                                } else {
+                                    homeHotVodAdapter.loadMoreEnd();
+                                }
+                            }
+                        });
+                    }
+                }
+
+                @Override
+                public void onError(Response<String> response) {
+                    super.onError(response);
+                    isRecLoading = false;
+                    if (mActivity != null) {
+                        mActivity.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                homeHotVodAdapter.loadMoreFail();
+                            }
+                        });
+                    }
+                }
+
+                @Override
+                public String convertResponse(okhttp3.Response response) throws Throwable {
+                    return response.body().string();
+                }
+            });
+        } catch (Throwable th) {
+            th.printStackTrace();
+            isRecLoading = false;
+            homeHotVodAdapter.loadMoreFail();
+        }
+    }
+
+    private void loadMoreSite() {
+        if (sourceViewModel == null) {
+            homeHotVodAdapter.loadMoreEnd();
+            return;
+        }
+        isRecLoading = true;
+        final int nextPage = siteRecPage + 1;
+        sourceViewModel.getHomeRecListByPage(nextPage, new SourceViewModel.HomeRecCallback() {
+            @Override
+            public void done(final List<Movie.Video> videos) {
+                isRecLoading = false;
+                if (mActivity != null) {
+                    mActivity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (videos != null && !videos.isEmpty()) {
+                                siteRecPage = nextPage;
+                                homeHotVodAdapter.addData(videos);
+                                homeHotVodAdapter.loadMoreComplete();
+                            } else {
+                                homeHotVodAdapter.loadMoreEnd();
+                            }
+                        }
+                    });
+                }
+            }
+        });
     }
 
     private ArrayList<Movie.Video> loadHots(String json) {
@@ -376,6 +525,7 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
     @Override
     public void onDestroy() {
         super.onDestroy();
+        mInstance = null;
         EventBus.getDefault().unregister(this);
     }
 }
