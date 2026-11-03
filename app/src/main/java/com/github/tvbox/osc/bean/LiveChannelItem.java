@@ -84,7 +84,7 @@ public class LiveChannelItem {
     }
 
     public String getUrl() {
-        return channelUrls.get(sourceIndex);
+        return com.github.tvbox.osc.util.LiveCryptoUtil.decryptUrl(channelUrls.get(sourceIndex));
     }
 
     public int getSourceNum() {

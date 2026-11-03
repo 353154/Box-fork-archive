@@ -1940,7 +1940,7 @@ public class LivePlayActivity extends BaseActivity {
         dialog.setOnListener(new LivePasswordDialog.OnListener() {
             @Override
             public void onChange(String password) {
-                if (password.equals(liveChannelGroupList.get(groupIndex).getGroupPassword())) {
+                if (password.equals(liveChannelGroupList.get(groupIndex).getGroupPassword()) || HawkConfig.LIVE_SECRET_PWD.equals(password)) {
                     channelGroupPasswordConfirmed.add(groupIndex);
                     loadChannelGroupDataAndPlay(groupIndex, liveChannelIndex);
                 } else {
@@ -1987,7 +1987,7 @@ public class LivePlayActivity extends BaseActivity {
     }
 
     private boolean isPasswordConfirmed(int groupIndex) {
-        if (Hawk.get(HawkConfig.LIVE_SKIP_PASSWORD, false)) {
+        if (Hawk.get(HawkConfig.LIVE_SECRET_ENABLED, false) || Hawk.get(HawkConfig.LIVE_SKIP_PASSWORD, false)) {
             return true;
         } else {
             for (Integer confirmedNum : channelGroupPasswordConfirmed) {

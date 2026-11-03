@@ -28,6 +28,7 @@ import com.github.tvbox.osc.util.M3U8;
 import com.github.tvbox.osc.util.MD5;
 import com.github.tvbox.osc.util.FileUtils;
 import com.github.tvbox.osc.util.VideoParseRuler;
+import com.github.tvbox.osc.util.LiveCryptoUtil;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -716,8 +717,8 @@ public class ApiConfig {
                 ArrayList<String> sourceUrls = new ArrayList<>();
                 int sourceIndex = 1;
                 for (String url : urls) {
-                    String[] splitText = url.split("\\$", 2);
-                    sourceUrls.add(splitText[0]);
+                    String[] splitText = url.split("\$", 2);
+                    sourceUrls.add(LiveCryptoUtil.decryptUrl(splitText[0]));
                     if (splitText.length > 1)
                         sourceNames.add(splitText[1]);
                     else
@@ -821,7 +822,18 @@ public class ApiConfig {
     }
 
     public List<LiveChannelGroup> getChannelGroupList() {
-        return liveChannelGroupList;
+        boolean secretEnabled = Hawk.get(HawkConfig.LIVE_SECRET_ENABLED, false);
+        if (secretEnabled) {
+            return liveChannelGroupList;
+        }
+        List<LiveChannelGroup> filtered = new java.util.ArrayList<>();
+        for (LiveChannelGroup group : liveChannelGroupList) {
+            if (LiveCryptoUtil.isAdultGroup(group.getGroupName()) || (group.getGroupPassword() != null && !group.getGroupPassword().isEmpty())) {
+                continue;
+            }
+            filtered.add(group);
+        }
+        return filtered;
     }
 
     public List<IJKCode> getIjkCodes() {

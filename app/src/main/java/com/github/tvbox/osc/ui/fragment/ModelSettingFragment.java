@@ -28,6 +28,7 @@ import com.github.tvbox.osc.ui.dialog.ApiDialog;
 import com.github.tvbox.osc.ui.dialog.ApiHistoryDialog;
 import com.github.tvbox.osc.ui.dialog.BackupDialog;
 import com.github.tvbox.osc.ui.dialog.HomeIconDialog;
+import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
 import com.github.tvbox.osc.ui.dialog.MediaSettingDialog;
 import com.github.tvbox.osc.ui.dialog.ResetDialog;
 import com.github.tvbox.osc.ui.dialog.SelectDialog;
@@ -86,6 +87,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
     private TextView tvSearchView;
     private TextView tvDns;
     private TextView tvFastSearchText;
+    private TextView tvLiveSecretText;
 
     public static ModelSettingFragment newInstance() {
         return new ModelSettingFragment().setArguments();
@@ -104,6 +106,8 @@ public class ModelSettingFragment extends BaseLazyFragment {
     protected void init() {
         tvFastSearchText = findViewById(R.id.showFastSearchText);
         tvFastSearchText.setText(Hawk.get(HawkConfig.FAST_SEARCH_MODE, false) ? "已开启" : "已关闭");
+        tvLiveSecretText = findViewById(R.id.tvLiveSecretText);
+        tvLiveSecretText.setText(Hawk.get(HawkConfig.LIVE_SECRET_ENABLED, false) ? "已开启" : "已关闭");
         tvDebugOpen = findViewById(R.id.tvDebugOpen);
         tvDebugOpen.setText(Hawk.get(HawkConfig.DEBUG_OPEN, false) ? "开启" : "关闭");
         tvApi = findViewById(R.id.tvApi);
@@ -693,6 +697,37 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 FastClickCheckUtil.check(v);
                 Hawk.put(HawkConfig.FAST_SEARCH_MODE, !Hawk.get(HawkConfig.FAST_SEARCH_MODE, false));
                 tvFastSearchText.setText(Hawk.get(HawkConfig.FAST_SEARCH_MODE, false) ? "已开启" : "已关闭");
+            }
+        });
+        findViewById(R.id.llLiveSecret).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FastClickCheckUtil.check(v);
+                boolean isEnabled = Hawk.get(HawkConfig.LIVE_SECRET_ENABLED, false);
+                if (isEnabled) {
+                    Hawk.put(HawkConfig.LIVE_SECRET_ENABLED, false);
+                    tvLiveSecretText.setText("已关闭");
+                    Toast.makeText(mActivity, "私密频道已关闭", Toast.LENGTH_SHORT).show();
+                } else {
+                    LivePasswordDialog dialog = new LivePasswordDialog(mActivity);
+                    dialog.setOnListener(new LivePasswordDialog.OnListener() {
+                        @Override
+                        public void onChange(String password) {
+                            if (HawkConfig.LIVE_SECRET_PWD.equals(password)) {
+                                Hawk.put(HawkConfig.LIVE_SECRET_ENABLED, true);
+                                tvLiveSecretText.setText("已开启");
+                                Toast.makeText(mActivity, "密码正确，私密频道已开启", Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(mActivity, "密码错误", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onCancel() {
+                        }
+                    });
+                    dialog.show();
+                }
             }
         });
         // Select App Language ( English / Chinese ) -----------------
