@@ -717,7 +717,7 @@ public class ApiConfig {
                 ArrayList<String> sourceUrls = new ArrayList<>();
                 int sourceIndex = 1;
                 for (String url : urls) {
-                    String[] splitText = url.split("\$", 2);
+                    String[] splitText = url.split("\\$", 2);
                     sourceUrls.add(LiveCryptoUtil.decryptUrl(splitText[0]));
                     if (splitText.length > 1)
                         sourceNames.add(splitText[1]);
