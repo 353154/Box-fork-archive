@@ -31,10 +31,18 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleArmeabiGenericNormalRelease assembleArmeabiGenericPythonRelease --stacktrace --build-cache --no-daemon
 
-      - name: Collect APKs
+      - name: Collect and Verify APKs
         run: |
           mkdir -p ${{ github.workspace }}/release_apks/
           find app/build/outputs/apk/ -name "*.apk" -exec cp {} ${{ github.workspace }}/release_apks/ \;
+          for apk in ${{ github.workspace }}/release_apks/*.apk; do
+            echo "Checking signature for $apk"
+            $ANDROID_HOME/build-tools/34.0.0/apksigner verify -v "$apk" || (
+              echo "Signing $apk with debug key..."
+              $ANDROID_HOME/build-tools/34.0.0/apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android "$apk"
+              $ANDROID_HOME/build-tools/34.0.0/apksigner verify -v "$apk"
+            )
+          done
           ls -lh ${{ github.workspace }}/release_apks/
 
       - name: Upload APKs to Artifact
