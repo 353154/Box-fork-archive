@@ -1994,7 +1994,7 @@ public class LivePlayActivity extends BaseActivity {
     }
 
     private boolean isPasswordConfirmed(int groupIndex) {
-        if (Hawk.get(HawkConfig.LIVE_SECRET_ENABLED, false) || Hawk.get(HawkConfig.LIVE_SKIP_PASSWORD, false)) {
+        if (LiveSecretManager.isSecretUnlocked() || Hawk.get(HawkConfig.LIVE_SECRET_ENABLED, false) || Hawk.get(HawkConfig.LIVE_SKIP_PASSWORD, false)) {
             return true;
         } else {
             for (Integer confirmedNum : channelGroupPasswordConfirmed) {
