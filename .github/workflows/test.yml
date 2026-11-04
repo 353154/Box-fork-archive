@@ -60,10 +60,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.0-custom
-          name: "TVBox 定制版 (电视端 + 手机端)"
+          tag_name: v1.0.1-custom
+          name: "TVBox 定制版 v1.0.1 (内置默认配置与私密免密切台)"
           body: |
-            ## TVBox 定制版本发布（支持私密频道与端到端加密）
+            ## TVBox 定制版本 v1.0.1 发布
+            
+            ### 🚀 本次更新内容
+            - **内置默认配置地址**：新装开箱即用，自动加载 `https://xyzweb.cyou/tvbox/tvbox.json`，免遥控器手动输入；
+            - **修复切台二次弹密**：修复私密频道通过 5 击暗门解锁后，切换频道依然弹出二次密码输入框的问题；
+            - **版本号升级**：`versionCode 2`，支持旧版本直接覆盖安装升级。
             
             ### 📺 电视端 (32位 ARM / armeabi-v7a，适配 Model-X3 等主流电视盒)
             - `TVBox_release-armeabi-generic-python.apk`：推荐，包含完整 Python 规则片库
@@ -74,8 +79,9 @@ jobs:
             - `TVBox_release-arm64-generic-java.apk`：轻量版，纯 Java 运行库
             
             ### 🔑 使用说明
-            - 默认密码：`258258`（进入设置 -> 私密频道开启）
-            - 配置地址：`https://xyzweb.cyou/tvbox/tvbox.json`
+            - 授权暗门：进入【设置】-> 连续点击【关于软件】5 次唤出安全授权窗口
+            - 默认密码：`258258`
+            - 配置地址：已内置，新安装自动就绪
           files: ${{ github.workspace }}/release_apks/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
