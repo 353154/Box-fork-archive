@@ -279,7 +279,7 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
     }
 
     private void initHomeHotVod(HomeHotVodAdapter adapter) {
-        if (Hawk.get(HawkConfig.HOME_REC, 0) == 1) {
+        if (Hawk.get(HawkConfig.HOME_REC, 0) == 1 && !ApiConfig.get().getSourceBeanList().isEmpty()) {
             siteRecPage = 1;
             if (homeSourceRec != null && !homeSourceRec.isEmpty()) {
                 adapter.setNewData(homeSourceRec);

@@ -408,11 +408,15 @@ public class SourceViewModel extends ViewModel {
 
     public void getHomeRecListByPage(int page, HomeRecCallback callback) {
         SourceBean homeSourceBean = ApiConfig.get().getHomeSourceBean();
-        if (homeSourceBean == null) {
+        if (homeSourceBean == null || homeSourceBean.getKey() == null || homeSourceBean.getKey().isEmpty()) {
             callback.done(null);
             return;
         }
         int type = homeSourceBean.getType();
+        if (type != 3 && (homeSourceBean.getApi() == null || homeSourceBean.getApi().isEmpty())) {
+            callback.done(null);
+            return;
+        }
         if (type == 3) {
             Runnable waitResponse = new Runnable() {
                 @Override
