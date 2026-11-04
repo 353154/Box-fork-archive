@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,10 +28,12 @@ jobs:
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-      - name: Build Armeabi Release APK
+      - name: Build TV (armeabi) & Phone (arm64) Release APKs
         run: |
           chmod +x gradlew
-          ./gradlew assembleArmeabiGenericNormalRelease assembleArmeabiGenericPythonRelease --stacktrace --build-cache --no-daemon
+          ./gradlew assembleArmeabiGenericNormalRelease assembleArmeabiGenericPythonRelease \
+                    assembleArm64GenericNormalRelease assembleArm64GenericPythonRelease \
+                    --stacktrace --build-cache --no-daemon
 
       - name: Collect and Verify APKs
         run: |
@@ -48,6 +52,30 @@ jobs:
       - name: Upload APKs to Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TVBox-Model-X3-APKs
+          name: TVBox-APKs-TV-and-Phone
           path: ${{ github.workspace }}/release_apks/*.apk
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.0-custom
+          name: "TVBox 定制版 (电视端 + 手机端)"
+          body: |
+            ## TVBox 定制版本发布（支持私密频道与端到端加密）
+            
+            ### 📺 电视端 (32位 ARM / armeabi-v7a，适配 Model-X3 等主流电视盒)
+            - `TVBox_release-armeabi-generic-python.apk`：推荐，包含完整 Python 规则片库
+            - `TVBox_release-armeabi-generic-java.apk`：轻量版，纯 Java 运行库
+            
+            ### 📱 手机端 (64位 ARM / arm64-v8a，适配所有现代主流智能手机)
+            - `TVBox_release-arm64-generic-python.apk`：推荐，包含完整 Python 规则片库
+            - `TVBox_release-arm64-generic-java.apk`：轻量版，纯 Java 运行库
+            
+            ### 🔑 使用说明
+            - 默认密码：`258258`（进入设置 -> 私密频道开启）
+            - 配置地址：`https://xyzweb.cyou/tvbox/tvbox.json`
+          files: ${{ github.workspace }}/release_apks/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
