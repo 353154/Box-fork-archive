@@ -29,6 +29,7 @@ import com.github.tvbox.osc.util.MD5;
 import com.github.tvbox.osc.util.FileUtils;
 import com.github.tvbox.osc.util.VideoParseRuler;
 import com.github.tvbox.osc.util.LiveCryptoUtil;
+import com.github.tvbox.osc.util.LiveSecretManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -822,7 +823,7 @@ public class ApiConfig {
     }
 
     public List<LiveChannelGroup> getChannelGroupList() {
-        boolean secretEnabled = Hawk.get(HawkConfig.LIVE_SECRET_ENABLED, false);
+        boolean secretEnabled = LiveSecretManager.isSecretUnlocked();
         if (secretEnabled) {
             return liveChannelGroupList;
         }

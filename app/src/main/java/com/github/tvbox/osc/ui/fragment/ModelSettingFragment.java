@@ -29,6 +29,8 @@ import com.github.tvbox.osc.ui.dialog.ApiHistoryDialog;
 import com.github.tvbox.osc.ui.dialog.BackupDialog;
 import com.github.tvbox.osc.ui.dialog.HomeIconDialog;
 import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
+import com.github.tvbox.osc.ui.dialog.SecretAuthDialog;
+import com.github.tvbox.osc.util.LiveSecretManager;
 import com.github.tvbox.osc.ui.dialog.MediaSettingDialog;
 import com.github.tvbox.osc.ui.dialog.ResetDialog;
 import com.github.tvbox.osc.ui.dialog.SelectDialog;
@@ -88,6 +90,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
     private TextView tvDns;
     private TextView tvFastSearchText;
     private TextView tvLiveSecretText;
+    private final long[] mAboutHits = new long[5];
 
     public static ModelSettingFragment newInstance() {
         return new ModelSettingFragment().setArguments();
@@ -107,7 +110,14 @@ public class ModelSettingFragment extends BaseLazyFragment {
         tvFastSearchText = findViewById(R.id.showFastSearchText);
         tvFastSearchText.setText(Hawk.get(HawkConfig.FAST_SEARCH_MODE, false) ? "已开启" : "已关闭");
         tvLiveSecretText = findViewById(R.id.tvLiveSecretText);
-        tvLiveSecretText.setText(Hawk.get(HawkConfig.LIVE_SECRET_ENABLED, false) ? "已开启" : "已关闭");
+        View llLiveSecret = findViewById(R.id.llLiveSecret);
+        if (LiveSecretManager.isSecretUnlocked()) {
+            if (llLiveSecret != null) llLiveSecret.setVisibility(View.VISIBLE);
+            tvLiveSecretText.setText("已开启（点击即锁定）");
+        } else {
+            if (llLiveSecret != null) llLiveSecret.setVisibility(View.GONE);
+            tvLiveSecretText.setText("已关闭");
+        }
         tvDebugOpen = findViewById(R.id.tvDebugOpen);
         tvDebugOpen.setText(Hawk.get(HawkConfig.DEBUG_OPEN, false) ? "开启" : "关闭");
         tvApi = findViewById(R.id.tvApi);
@@ -703,31 +713,10 @@ public class ModelSettingFragment extends BaseLazyFragment {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
-                boolean isEnabled = Hawk.get(HawkConfig.LIVE_SECRET_ENABLED, false);
-                if (isEnabled) {
-                    Hawk.put(HawkConfig.LIVE_SECRET_ENABLED, false);
-                    tvLiveSecretText.setText("已关闭");
-                    Toast.makeText(mActivity, "私密频道已关闭", Toast.LENGTH_SHORT).show();
-                } else {
-                    LivePasswordDialog dialog = new LivePasswordDialog(mActivity);
-                    dialog.setOnListener(new LivePasswordDialog.OnListener() {
-                        @Override
-                        public void onChange(String password) {
-                            if (HawkConfig.LIVE_SECRET_PWD.equals(password)) {
-                                Hawk.put(HawkConfig.LIVE_SECRET_ENABLED, true);
-                                tvLiveSecretText.setText("已开启");
-                                Toast.makeText(mActivity, "密码正确，私密频道已开启", Toast.LENGTH_SHORT).show();
-                            } else {
-                                Toast.makeText(mActivity, "密码错误", Toast.LENGTH_SHORT).show();
-                            }
-                        }
-
-                        @Override
-                        public void onCancel() {
-                        }
-                    });
-                    dialog.show();
-                }
+                LiveSecretManager.lock();
+                v.setVisibility(View.GONE);
+                tvLiveSecretText.setText("已关闭");
+                Toast.makeText(mActivity, "已锁定私密频道，入口已隐匿", Toast.LENGTH_SHORT).show();
             }
         });
         // Select App Language ( English / Chinese ) -----------------
@@ -832,6 +821,30 @@ public class ModelSettingFragment extends BaseLazyFragment {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
+                System.arraycopy(mAboutHits, 1, mAboutHits, 0, mAboutHits.length - 1);
+                mAboutHits[mAboutHits.length - 1] = android.os.SystemClock.uptimeMillis();
+                if (mAboutHits[0] >= (android.os.SystemClock.uptimeMillis() - 2500)) {
+                    // 5击连续暗门触发！
+                    SecretAuthDialog authDialog = new SecretAuthDialog(mActivity);
+                    authDialog.setOnAuthListener(new SecretAuthDialog.OnAuthListener() {
+                        @Override
+                        public void onUnlocked() {
+                            View secretView = findViewById(R.id.llLiveSecret);
+                            if (secretView != null) {
+                                secretView.setVisibility(View.VISIBLE);
+                                if (tvLiveSecretText != null) {
+                                    tvLiveSecretText.setText("已开启（点击即锁定）");
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void onCancel() {
+                        }
+                    });
+                    authDialog.show();
+                    return;
+                }
                 AboutDialog dialog = new AboutDialog(mActivity);
                 dialog.show();
             }

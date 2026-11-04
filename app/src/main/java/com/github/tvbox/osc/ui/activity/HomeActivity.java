@@ -841,6 +841,7 @@ public class HomeActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        com.github.tvbox.osc.util.LiveSecretManager.lock();
         EventBus.getDefault().unregister(this);
         AppManager.getInstance().appExit(0);
         ControlManager.get().stopServer();

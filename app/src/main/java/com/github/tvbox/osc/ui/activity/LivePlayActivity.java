@@ -52,6 +52,7 @@ import com.github.tvbox.osc.ui.dialog.LivePasswordDialog;
 import com.github.tvbox.osc.util.EpgUtil;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
+import com.github.tvbox.osc.util.LiveSecretManager;
 import com.github.tvbox.osc.util.HawkUtils;
 import com.github.tvbox.osc.util.JavaUtil;
 import com.github.tvbox.osc.util.live.TxtSubscribe;
@@ -1751,6 +1752,12 @@ public class LivePlayActivity extends BaseActivity {
             Toast.makeText(App.getInstance(), getString(R.string.act_live_play_empty_channel), Toast.LENGTH_SHORT).show();
             finish();
             return;
+        }
+        if (LiveSecretManager.isSecretUnlocked()) {
+            String token = LiveSecretManager.getSessionToken();
+            if (!token.isEmpty() && !url.contains("token=")) {
+                url = url + (url.contains("?") ? "&" : "?") + "token=" + token;
+            }
         }
         showLoading();
         OkGo.<String>get(url).execute(new AbsCallback<String>() {
